@@ -23,8 +23,7 @@ update_header(){
 
 install_requirements(){
 
-  rpm -ivh $_EPEL_RELEASE &> /dev/null
-  yum install -y yum-utils $_EXTRA_PKGS &> /dev/null
+  yum install -y $_EXTRA_PKGS &> /dev/null
 
 }
 
@@ -33,8 +32,8 @@ xcat_repo_add(){
   mkdir -p /var/cache/xCAT-repo/xcat-core
   mkdir -p /var/cache/xCAT-repo/xcat-deps
   
-  reposync --config=./xCAT-repo-files/xCAT-Core.repo --repoid=xcat-core --download_path=/var/cache/xCAT-repo/xcat-core
-  reposync --config=./xCAT-repo-files/xCAT-Deps.repo --repoid=xcat-deps --download_path=/var/cache/xCAT-repo/xcat-deps
+  reposync --config=./xcat/repositories/xCAT-Core.repo --repoid=xcat-core --download_path=/var/cache/xCAT-repo/xcat-core
+  reposync --config=./xcat/repositories/xCAT-Deps.repo --repoid=xcat-deps --download_path=/var/cache/xCAT-repo/xcat-deps
   
   createrepo /var/cache/xCAT-repo/xcat-core
   createrepo /var/cache/xCAT-repo/xcat-deps
@@ -146,7 +145,7 @@ xcat_post_install(){
 
   . /etc/profile.d/xcat.sh
 
-  echo -e "Restoring xCat tables: $(/opt/xcat/sbin/restorexCATdb -p ./tables)"
+  echo -e "Restoring xCat tables: $(/opt/xcat/sbin/restorexCATdb -p ./xcat/tables)"
   service xcatd restart &> /dev/null
 
   /opt/xcat/sbin/nodeadd node001-node004 groups=compute
