@@ -1,5 +1,0 @@
-DEVICE=eth1
-ONBOOT=yes
-BOOTPROTO=dhcp
-PEERDNS=no
-
