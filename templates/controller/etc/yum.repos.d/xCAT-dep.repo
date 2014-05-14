@@ -1,0 +1,6 @@
+[xcat-dep]
+name=xCAT 2 depedencies
+baseurl=https://sourceforge.net/projects/xcat/files/yum/xcat-dep/rh6/x86_64
+enabled=1
+gpgcheck=1
+gpgkey=https://sourceforge.net/projects/xcat/files/yum/xcat-dep/rh6/x86_64/repodata/repomd.xml.key
