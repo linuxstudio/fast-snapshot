@@ -1,0 +1,5 @@
+#netname,net,mask,mgtifname,gateway,dhcpserver,tftpserver,nameservers,ntpservers,logservers,dynamicrange,staticrange,staticrangeincrement,nodehostname,ddnsdomain,vlanid,domain,comments,disable
+"internal_net","10.141.0.0","255.255.0.0","eth0","10.141.255.254","10.141.255.254","10.141.255.254","10.141.255.254",,,"10.141.230.1-10.141.239.254",,,,,,,,
+"bmc_net","10.148.0.0","255.255.0.0","eth1","10.148.255.254",,,10.141.255.254,,,,,,,,,,,
+"ib_net","10.149.0.0","255.255.0.0","eth1","10.148.255.254",,,10.141.255.254,,,,,,,,,,,
+"app_net","172.17.0.0","255.255.0.0","eth1","172.16.255.254",,,10.141.255.254,,,,,,,,,,,
