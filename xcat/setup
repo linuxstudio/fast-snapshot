@@ -1,0 +1,244 @@
+#!/bin/bash
+
+_PKI_DIR=/etc/salt/pki
+_SALT_ROOTFILES=/srv
+_CURRENT_DIR=$(pwd)
+_EPEL_RELEASE=http://ftp.linux.ncsu.edu/pub/epel/6/i386/epel-release-6-8.noarch.rpm
+_CONTROLLER_NAME=""
+_EXTRA_PKGS="net-snmp-utils wget yum-utils createrepo python-pyasn1 pysnmp"
+_XCAT_INSTALLED=false
+_DONE_TASKS=""
+
+. ./tools/bash_lib
+
+update_header(){
+
+  move_and_echo 1 1 "                   /\___/\\"
+  move_and_echo 2 1 "                   \ -.- /"
+  move_and_echo 3 1 "                   \`-.^.-'          **xCAT** "   
+  move_and_echo 4 1 "                     /\"\ "
+  move_and_echo 5 1 "“Cats are intended to teach us that not everything in nature has a purpose.”"
+
+}
+
+install_requirements(){
+
+  rpm -ivh $_EPEL_RELEASE &> /dev/null
+  yum install -y yum-utils $_EXTRA_PKGS &> /dev/null
+
+}
+
+xcat_repo_add(){
+
+  mkdir -p /var/cache/xCAT-repo/xcat-core
+  mkdir -p /var/cache/xCAT-repo/xcat-deps
+  
+  reposync --config=./xCAT-repo-files/xCAT-Core.repo --repoid=xcat-core --download_path=/var/cache/xCAT-repo/xcat-core
+  reposync --config=./xCAT-repo-files/xCAT-Deps.repo --repoid=xcat-deps --download_path=/var/cache/xCAT-repo/xcat-deps
+  
+  createrepo /var/cache/xCAT-repo/xcat-core
+  createrepo /var/cache/xCAT-repo/xcat-deps
+
+  rm -rf /etc/yum.repos.d/xCAT-Core.repo
+  rm -rf /etc/yum.repos.d/xCAT-Deps.repo
+
+	cat <<- EOF > /etc/yum.repos.d/xCAT-Core.repo
+	[xcat-core-local]
+	name=xCAT 2 Core packages
+	baseurl=file:///var/cache/xCAT-repo/xcat-core
+	enabled=1
+	gpgcheck=1
+	gpgkey=https://sourceforge.net/projects/xcat/files/yum/2.8/xcat-core/repodata/repomd.xml.key
+	EOF
+
+	cat <<- EOF > /etc/yum.repos.d/xCAT-Deps.repo
+	[xcat-deps-local]
+	name=xCAT 2 depedencies
+	baseurl=file:///var/cache/xCAT-repo/xcat-deps
+	enabled=1
+	gpgcheck=1
+	gpgkey=https://sourceforge.net/projects/xcat/files/yum/xcat-dep/rh6/x86_64/repodata/repomd.xml.key
+	EOF
+
+} &> /dev/null
+
+xcat_cleanup(){
+  
+  echo -e "Removing xCAT\n"
+  rm -rf /install
+  rm -rf /root/.xcat
+  rm -rf /tftpboot
+  rm -rf /etc/apache2/conf.d/xcat.conf
+  rm -rf /etc/httpd/conf.d/xcat.conf
+  rm -rf /etc/xCATMN
+  rm -rf /opt/xcat/
+  rm -rf /etc/xcat
+
+  echo -e "Forcing removal of all xCAT packages from the packages database:\n"
+  for pkg in $(repoquery --resolve --repoid=xcat-deps-local --repoid=xcat-core-local --require -i $(repoquery --requires --recursive --resolve xCAT) | grep "Name        :" | awk '{print $3}' | sort -u); do
+   echo -e "\e[33m[ Cleaning ]\e[0m $(seq -s. $(expr 63 - ${#pkg})|tr -d '[:digit:]') $pkg"
+   rpm -e --justdb --nodeps $pkg &> /dev/null
+  done
+
+}
+
+xcat_install(){
+  
+  echo -e "\nInstalling necessary packages and creating new configuration files:\n"
+  for pkg in $(repoquery --resolve --repoid=xcat-deps-local --repoid=xcat-core-local --require -i $(repoquery --requires --recursive --resolve xCAT) | grep "Name        :" | awk '{print $3}' | sort -u); do
+    echo -e "\e[32m[ Installing ]\e[0m $(seq -s. $(expr 61 - ${#pkg})|tr -d '[:digit:]') $pkg"
+    yum install -y $pkg &>/dev/null
+  done
+
+}
+
+xcat_system_config(){
+
+	cat <<- EOF > /etc/ntp.conf
+	server 127.127.1.0
+	fudge 127.127.1.0 stratum 10
+	server 0.europe.pool.ntp.org iburst
+	server 1.europe.pool.ntp.org iburst 
+	server 2.europe.pool.ntp.org iburst
+	server 3.europe.pool.ntp.org iburst
+	driftfile /var/lib/ntp/drift
+	EOF
+
+	cat <<- EOF > /etc/sysconfig/network
+	NETWORKING=yes
+	HOSTNAME=controller
+	EOF
+
+	cat <<- EOF > /etc/hosts
+	127.0.0.1	localhost
+	10.141.255.254	controller controller.cluster
+	EOF
+
+	cat <<- EOF > /etc/sysconfig/network-scripts/ifcfg-eth0
+	DEVICE=eth0
+	ONBOOT=yes
+	BOOTPROTO=static
+	IPADDR=10.141.255.254
+	PREFIX=16
+	EOF
+
+	cat <<- EOF > /etc/sysconfig/network-scripts/ifcfg-eth1
+	DEVICE=eth1
+	ONBOOT=yes
+	BOOTPROTO=dhcp
+	PEERDNS=no
+	EOF
+
+	cat <<- EOF > /etc/resolv.conf
+	search cluster
+	nameserver 10.141.255.254
+	nameserver 8.8.8.8
+	EOF
+
+  hostname controller
+  service network restart &> /dev/null
+
+}
+
+xcat_post_install(){
+
+  echo -e "\nxCAT post install steps:\n"
+
+  . /etc/profile.d/xcat.sh
+
+  echo -e "Restoring xCat tables: $(/opt/xcat/sbin/restorexCATdb -p ./tables)"
+  service xcatd restart &> /dev/null
+
+  /opt/xcat/sbin/nodeadd node001-node004 groups=compute
+  /opt/xcat/sbin/makehosts
+  /opt/xcat/sbin/makedhcp -n
+  /opt/xcat/sbin/makedhcp -a
+  /opt/xcat/sbin/makedns -n
+  
+  mkdir -p /install/custom/netboot/centos
+
+	cat <<- EOF > /install/custom/netboot/centos/compute.centos6.5.pkglist
+	bash
+	nfs-utils
+	openssl
+	dhclient
+	kernel
+	openssh-server
+	openssh-clients
+	wget
+	rsync
+	dracut-network
+	irqbalance
+	procps
+	rpm
+	e2fsprogs
+	parted
+	bc
+	ntp
+	rsyslog
+	firefox
+	EOF
+
+	cat <<- EOF > /install/custom/netboot/centos/compute.centos6.5.exlist
+	./usr/share/man/*
+	./usr/share/locale/*
+	./usr/share/i18n*
+	./var/cache/yum*
+	./usr/share/doc*
+	./usr/share/gnome*
+	./usr/share/zoneinfo*
+	./usr/share/cracklib*
+	./usr/share/info*
+	./usr/share/omf*
+	./usr/lib/locale*
+	./usr/lib/perl5*
+	./boot*
+	EOF
+
+
+  yumdownloader --destdir /install/centos6.5/x86_64/Packages $(cat ./pkg_list) &> /dev/null
+
+  createrepo /install/centos6.5/x86_64/
+  genimage -o centos6.5 -a x86_64 -p compute -i eth0
+
+  packimage -o centos6.5 -a x86_64 -p compute
+  nodeset compute osimage=centos6.5-x86_64-netboot-compute
+
+  service dhcpd restart &>/dev/null
+  service named restart &> /dev/null
+
+}
+
+xcat_pre_install(){
+
+  if [ -n "$(rpm -qa | grep -i xCAT)" ]; then
+    echo -e "\n\nFound previous xCAT installation... \c"
+    _XCAT_INSTALLED=true
+  fi  
+
+}
+
+echo -e \\033ct clear
+tput clear
+
+stty -echo
+tput civis
+
+update_header
+install_requirements
+
+xcat_repo_add
+xcat_system_config
+
+xcat_pre_install
+
+if [ "$_XCAT_INSTALLED" = true ]; then
+  xcat_cleanup
+fi
+
+xcat_install
+
+xcat_post_install
+
+stty echo
+tput cnorm
