@@ -199,7 +199,7 @@ xcat_post_install(){
 	EOF
 
 
-  yumdownloader --destdir /install/centos6.5/x86_64/Packages $(cat ./xcat/tools/pkg_list) &> /dev/null
+  yumdownloader --destdir /install/centos6.5/x86_64/Packages $(cat ./xcat/tools/pkg_list) #&> /dev/null
 
   createrepo /install/centos6.5/x86_64/
   genimage -o centos6.5 -a x86_64 -p compute -i eth0
