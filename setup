@@ -97,15 +97,7 @@ xcat_install(){
 
 xcat_system_config(){
 
-	cat <<- EOF > /etc/ntp.conf
-	server 127.127.1.0
-	fudge 127.127.1.0 stratum 10
-	server 0.europe.pool.ntp.org iburst
-	server 1.europe.pool.ntp.org iburst 
-	server 2.europe.pool.ntp.org iburst
-	server 3.europe.pool.ntp.org iburst
-	driftfile /var/lib/ntp/drift
-	EOF
+  cp ./templates/controller/etc/ntp /etc/ntp.conf
 
 	cat <<- EOF > /etc/sysconfig/network
 	NETWORKING=yes
@@ -159,50 +151,16 @@ xcat_post_install(){
   /opt/xcat/sbin/makedns -n
   
   mkdir -p /install/custom/netboot/centos
+  cp ./templates/controller/install/custom/netboot/centos/compute.centos6.5.pkglist /install/custom/netboot/centos
+  cp ./templates/controller/install/custom/netboot/centos/compute.centos6.5.exlist  /install/custom/netboot/centos
 
-	cat <<- EOF > /install/custom/netboot/centos/compute.centos6.5.pkglist
-	bash
-	nfs-utils
-	openssl
-	dhclient
-	kernel
-	openssh-server
-	openssh-clients
-	wget
-	rsync
-	dracut-network
-	irqbalance
-	procps
-	rpm
-	e2fsprogs
-	parted
-	bc
-	ntp
-	rsyslog
-	firefox
-	EOF
+  yumdownloader --destdir /install/centos6.5/x86_64/Packages $(cat ./xcat/tools/pkg_list) &> /dev/null &
+  please_wait $! "Downloading necessary image packages"
 
-	cat <<- EOF > /install/custom/netboot/centos/compute.centos6.5.exlist
-	./usr/share/man/*
-	./usr/share/locale/*
-	./usr/share/i18n*
-	./var/cache/yum*
-	./usr/share/doc*
-	./usr/share/gnome*
-	./usr/share/zoneinfo*
-	./usr/share/cracklib*
-	./usr/share/info*
-	./usr/share/omf*
-	./usr/lib/locale*
-	./usr/lib/perl5*
-	./boot*
-	EOF
+  createrepo /install/centos6.5/x86_64/ &> /dev/null
 
-
-  yumdownloader --destdir /install/centos6.5/x86_64/Packages $(cat ./xcat/tools/pkg_list) #&> /dev/null
-
-  createrepo /install/centos6.5/x86_64/
-  genimage -o centos6.5 -a x86_64 -p compute -i eth0
+  genimage -o centos6.5 -a x86_64 -p compute -i eth0 &> /dev/null &
+  please_wait $! "Generating image for node group compute"
 
   packimage -o centos6.5 -a x86_64 -p compute
   nodeset compute osimage=centos6.5-x86_64-netboot-compute
@@ -232,13 +190,12 @@ if [ -z "$_CONTROLLER_NAME" ]; then
   _CONTROLLER_NAME=$(hostname)
 fi
 
-echo -e "\nWe are going to install the xCAT controller with the following configuration:\n"
+echo -e "\nThe xCAT controller will be installed with the following configuration:\n"
 
-echo -e "Controller hostname: $_CONTROLLER_NAME"
-echo -e "Network information:"
-echo -e "1: eth0: <internal net> 10.141.255.254 255.255.0.0"
-echo -e "2: eth1: <external_net>  DHCP"
-echo -e "3: eth2: <external net> 10.148.255.254 255.255.0.0\n"
+echo -e "Hostname: $_CONTROLLER_NAME\n"
+echo -e "1: eth0: <internal net> .... 10.141.255.254 255.255.0.0"
+echo -e "3: eth2: <ipmi net> ........ 10.148.255.254 255.255.0.0"
+echo -e "2: eth1: <external net> .... DHCP\n"
 while true; do
   read -p "Do you wish to proceed? [y/n]: " yn
     case $yn in
