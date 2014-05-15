@@ -221,10 +221,6 @@ xcat_pre_install(){
 
 }
 
-network_setup(){
-
-}
-
 echo -e \\033ct clear
 tput clear
 
