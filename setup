@@ -89,7 +89,7 @@ xcat_install(){
   echo -e "\nInstalling necessary packages and creating new configuration files:\n"
   for pkg in $(repoquery --resolve --repoid=xcat-deps-local --repoid=xcat-core-local --require -i $(repoquery --requires --recursive --resolve xCAT) | grep "Name        :" | awk '{print $3}' | sort -u); do
     #echo -e "\e[32m[ Installing ]\e[0m $(seq -s. $(expr 61 - ${#pkg})|tr -d '[:digit:]') $pkg"
-    $(yum install -y $pkg &>/dev/null) &
+    yum install -y $pkg &>/dev/null &
     please_wait $! "Installing package $(seq -s. $(expr 43 - ${#pkg})|tr -d '[:digit:]') $pkg"
   done
 
@@ -235,12 +235,10 @@ fi
 echo -e "\nWe are going to install the xCAT controller with the following configuration:\n"
 
 echo -e "Controller hostname: $_CONTROLLER_NAME"
-echo -e "1: eth0: <internal net>"
-echo -e "    10.141.255.254  255.255.0.0"
-echo -e "2: eth1: <external_net>"
-echo -e "    DHCP"
-echo -e "3: eth2: <external net>"
-echo -e "    10.148.255.254 255.255.0.0\n"
+echo -e "Network information:"
+echo -e "1: eth0: <internal net> 10.141.255.254 255.255.0.0"
+echo -e "2: eth1: <external_net>  DHCP"
+echo -e "3: eth2: <external net> 10.148.255.254 255.255.0.0\n"
 while true; do
   read -p "Do you wish to proceed? [y/n]: " yn
     case $yn in

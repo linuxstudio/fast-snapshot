@@ -1,13 +1,15 @@
 #!/bin/bash
 
 cgreen=$(echo -e "\e[32m")
+cred=$(echo -e "\e[91m")
+cunder=$(echo -e "\e[4m")
 creset=$(echo -e "\e[0m")
 
 please_wait(){
 
 local pid=$1
-local delay=0.75
 local task=$2
+local delay=0.5
 
 while [ "$(ps a | awk '{print $1}' | grep $pid)" ]; do
   printf "\r[    ] $task"
@@ -19,7 +21,14 @@ while [ "$(ps a | awk '{print $1}' | grep $pid)" ]; do
   printf "\r[  . ]" 
   sleep $delay
 done
-printf "\r[ ${cgreen}OK${creset} ] $task \n"
+
+if wait $pid; then
+  printf "\r[ ${cgreen}OK${creset} ] $task $rc \n"
+else
+  printf "\r[${cred}FAIL${creset}] $task $rc \n"
+fi
+
+#printf "\r[ ${cgreen}OK${creset} ] $task $rc \n"
 
 }
 
