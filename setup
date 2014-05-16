@@ -97,7 +97,7 @@ xcat_install(){
 
 xcat_system_config(){
 
-  cp ./templates/controller/etc/ntp /etc/ntp.conf
+  /bin/cp -rf ./templates/controller/etc/ntp/ntp.conf /etc/ntp.conf
 
 	cat <<- EOF > /etc/sysconfig/network
 	NETWORKING=yes
@@ -141,14 +141,11 @@ xcat_post_install(){
 
   . /etc/profile.d/xcat.sh
 
-  echo -e "Restoring xCat tables: $(/opt/xcat/sbin/restorexCATdb -p ./xcat/tables)"
+  /opt/xcat/sbin/restorexCATdb -p ./xcat/tables &
+  please_wait $! "Restoring default xCAT tables"
   service xcatd restart &> /dev/null
-
-  /opt/xcat/sbin/nodeadd node001-node004 groups=compute
-  /opt/xcat/sbin/makehosts
-  /opt/xcat/sbin/makedhcp -n
-  /opt/xcat/sbin/makedhcp -a
-  /opt/xcat/sbin/makedns -n
+  
+  /opt/xcat/sbin/nodeadd node001-node004 groups=compute &> /dev/null
   
   mkdir -p /install/custom/netboot/centos
   cp ./templates/controller/install/custom/netboot/centos/compute.centos6.5.pkglist /install/custom/netboot/centos
@@ -163,6 +160,12 @@ xcat_post_install(){
   please_wait $! "Generating image for node group compute"
 
   packimage -o centos6.5 -a x86_64 -p compute
+
+  /opt/xcat/sbin/makehosts
+  /opt/xcat/sbin/makedhcp -n
+  /opt/xcat/sbin/makedhcp -a
+  /opt/xcat/sbin/makedns -n
+
   nodeset compute osimage=centos6.5-x86_64-netboot-compute
 
   service dhcpd restart &>/dev/null
@@ -193,9 +196,9 @@ fi
 echo -e "\nThe xCAT controller will be installed with the following configuration:\n"
 
 echo -e "Hostname: $_CONTROLLER_NAME\n"
-echo -e "1: eth0: <internal net> .... 10.141.255.254 255.255.0.0"
-echo -e "3: eth2: <ipmi net> ........ 10.148.255.254 255.255.0.0"
-echo -e "2: eth1: <external net> .... DHCP\n"
+echo -e "1: <internal net> .. eth0 ... 10.141.255.254 255.255.0.0"
+echo -e "3: <ipmi net> ...... eth2 ... 10.148.255.254 255.255.0.0"
+echo -e "2: <external net> .. eth1 ... DHCP\n"
 while true; do
   read -p "Do you wish to proceed? [y/n]: " yn
     case $yn in
@@ -211,13 +214,13 @@ tput civis
 xcat_repo_add
 xcat_system_config
 
-xcat_pre_install
+#xcat_pre_install
 
-if [ "$_XCAT_INSTALLED" = true ]; then
-  xcat_cleanup
-fi
+#if [ "$_XCAT_INSTALLED" = true ]; then
+#  xcat_cleanup
+#fi
 
-xcat_install
+#xcat_install
 
 xcat_post_install
 
