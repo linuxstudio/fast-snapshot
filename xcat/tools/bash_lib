@@ -1,7 +1,7 @@
 #!/bin/bash
 
 cgreen=$(echo -e "\e[32m")
-cred=$(echo -e "\e[91m")
+cred=$(echo -e "\e[31m")
 cunder=$(echo -e "\e[4m")
 creset=$(echo -e "\e[0m")
 

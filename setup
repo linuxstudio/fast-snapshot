@@ -13,10 +13,10 @@ _DONE_TASKS=""
 
 update_header(){
 
-  move_and_echo 1 1 "                   /\___/\\"
-  move_and_echo 2 1 "                   \ -.- /"
-  move_and_echo 3 1 "                   \`-.^.-'          **xCAT** "   
-  move_and_echo 4 1 "                     /\"\ "
+  move_and_echo 1 1 "                       /\___/\\"
+  move_and_echo 2 1 "                       \ -.- /"
+  move_and_echo 3 1 "                       \`-.^.-'          **xCAT** "   
+  move_and_echo 4 1 "                         /\"\ \n"
   move_and_echo 5 1 "“Cats are intended to teach us that not everything in nature has a purpose.”"
 
   move_and_echo 7 1 ""
@@ -98,37 +98,15 @@ xcat_install(){
 xcat_system_config(){
 
   /bin/cp -rf ./templates/controller/etc/ntp/ntp.conf /etc/ntp.conf
-
-	cat <<- EOF > /etc/sysconfig/network
-	NETWORKING=yes
-	HOSTNAME=controller
-	EOF
+  /bin/cp -rf ./templates/controller/etc/sysconfig/network /etc/sysconfig/network
 
 	cat <<- EOF > /etc/hosts
 	127.0.0.1	localhost
 	10.141.255.254	controller controller.cluster
 	EOF
 
-	cat <<- EOF > /etc/sysconfig/network-scripts/ifcfg-eth0
-	DEVICE=eth0
-	ONBOOT=yes
-	BOOTPROTO=static
-	IPADDR=10.141.255.254
-	PREFIX=16
-	EOF
-
-	cat <<- EOF > /etc/sysconfig/network-scripts/ifcfg-eth1
-	DEVICE=eth1
-	ONBOOT=yes
-	BOOTPROTO=dhcp
-	PEERDNS=no
-	EOF
-
-	cat <<- EOF > /etc/resolv.conf
-	search cluster
-	nameserver 10.141.255.254
-	nameserver 8.8.8.8
-	EOF
+  /bin/cp -rf ./templates/controller/etc/sysconfig/network-scripts/* /etc/sysconfig/network-scripts/
+  /bin/cp -rf ./templates/controller/etc/resolv.conf /etc/resolv.conf
 
   hostname controller
   service network restart &> /dev/null
@@ -141,7 +119,7 @@ xcat_post_install(){
 
   . /etc/profile.d/xcat.sh
 
-  /opt/xcat/sbin/restorexCATdb -p ./xcat/tables &
+  /opt/xcat/sbin/restorexCATdb -p ./xcat/tables &> /dev/null &
   please_wait $! "Restoring default xCAT tables"
   service xcatd restart &> /dev/null
   
@@ -152,16 +130,17 @@ xcat_post_install(){
   cp ./templates/controller/install/custom/netboot/centos/compute.centos6.5.exlist  /install/custom/netboot/centos
 
   yumdownloader --destdir /install/centos6.5/x86_64/Packages $(cat ./xcat/tools/pkg_list) &> /dev/null &
-  please_wait $! "Downloading necessary image packages"
+  please_wait $! "Downloading necessary distribuition packages"
 
   createrepo /install/centos6.5/x86_64/ &> /dev/null
 
   genimage -o centos6.5 -a x86_64 -p compute -i eth0 &> /dev/null &
   please_wait $! "Generating image for node group compute"
 
-  packimage -o centos6.5 -a x86_64 -p compute
+  packimage -o centos6.5 -a x86_64 -p compute &> /dev/null &
+  please_wait $! "Packing the new node image"
 
-  /opt/xcat/sbin/makehosts
+  (/opt/xcat/sbin/makehosts
   /opt/xcat/sbin/makedhcp -n
   /opt/xcat/sbin/makedhcp -a
   /opt/xcat/sbin/makedns -n
@@ -169,7 +148,7 @@ xcat_post_install(){
   nodeset compute osimage=centos6.5-x86_64-netboot-compute
 
   service dhcpd restart &>/dev/null
-  service named restart &> /dev/null
+  service named restart &> /dev/null)
 
 }
 
@@ -186,7 +165,6 @@ echo -e \\033ct clear
 tput clear
 
 update_header
-install_requirements
 
 read -p "What shall we name this controller? [$(hostname)]: " _CONTROLLER_NAME
 if [ -z "$_CONTROLLER_NAME" ]; then
@@ -211,16 +189,18 @@ done
 stty -echo
 tput civis
 
+install_requirements
+
 xcat_repo_add
 xcat_system_config
 
-#xcat_pre_install
+xcat_pre_install
 
-#if [ "$_XCAT_INSTALLED" = true ]; then
-#  xcat_cleanup
-#fi
+if [ "$_XCAT_INSTALLED" = true ]; then
+  xcat_cleanup
+fi
 
-#xcat_install
+xcat_install
 
 xcat_post_install
 
