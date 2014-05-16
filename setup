@@ -90,7 +90,7 @@ xcat_install(){
   for pkg in $(repoquery --resolve --repoid=xcat-deps-local --repoid=xcat-core-local --require -i $(repoquery --requires --recursive --resolve xCAT) | grep "Name        :" | awk '{print $3}' | sort -u); do
     #echo -e "\e[32m[ Installing ]\e[0m $(seq -s. $(expr 61 - ${#pkg})|tr -d '[:digit:]') $pkg"
     yum install -y $pkg &>/dev/null &
-    please_wait $! "Installing package $(seq -s. $(expr 43 - ${#pkg})|tr -d '[:digit:]') $pkg"
+    please_wait $! "Installing package $(seq -s. $(expr 43 - ${#pkg})|tr -d '[:digit:]') $pkg" true
   done
 
 }
@@ -120,7 +120,7 @@ xcat_post_install(){
   . /etc/profile.d/xcat.sh
 
   /opt/xcat/sbin/restorexCATdb -p ./xcat/tables &> /dev/null &
-  please_wait $! "Restoring default xCAT tables"
+  please_wait $! "Restoring default xCAT tables" true
   service xcatd restart &> /dev/null
   
   /opt/xcat/sbin/nodeadd node001-node004 groups=compute &> /dev/null
@@ -130,15 +130,15 @@ xcat_post_install(){
   cp ./templates/controller/install/custom/netboot/centos/compute.centos6.5.exlist  /install/custom/netboot/centos
 
   yumdownloader --destdir /install/centos6.5/x86_64/Packages $(cat ./xcat/tools/pkg_list) &> /dev/null &
-  please_wait $! "Downloading necessary distribuition packages"
+  please_wait $! "Downloading necessary distribution packages" true
 
   createrepo /install/centos6.5/x86_64/ &> /dev/null
 
   genimage -o centos6.5 -a x86_64 -p compute -i eth0 &> /dev/null &
-  please_wait $! "Generating image for node group compute"
+  please_wait $! "Generating image for node group compute" true
 
   packimage -o centos6.5 -a x86_64 -p compute &> /dev/null &
-  please_wait $! "Packing the new node image"
+  please_wait $! "Packing the new node image" true
 
   (/opt/xcat/sbin/makehosts
   /opt/xcat/sbin/makedhcp -n
@@ -148,7 +148,8 @@ xcat_post_install(){
   nodeset compute osimage=centos6.5-x86_64-netboot-compute
 
   service dhcpd restart &>/dev/null
-  service named restart &> /dev/null)
+  service named restart &> /dev/null) &> /dev/null &
+  please_wait $! "Creating nodes and restarting services" true
 
 }
 
