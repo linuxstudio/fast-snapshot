@@ -9,7 +9,7 @@ _EXTRA_PKGS="net-snmp-utils wget yum-utils createrepo python-pyasn1 pysnmp"
 _XCAT_INSTALLED=false
 _DONE_TASKS=""
 
-. ./tools/bash_lib
+. ./xcat/tools/bash_lib
 
 update_header(){
 
@@ -18,6 +18,8 @@ update_header(){
   move_and_echo 3 1 "                   \`-.^.-'          **xCAT** "   
   move_and_echo 4 1 "                     /\"\ "
   move_and_echo 5 1 "“Cats are intended to teach us that not everything in nature has a purpose.”"
+
+  move_and_echo 7 1 ""
 
 }
 
@@ -59,7 +61,7 @@ xcat_repo_add(){
 	gpgkey=https://sourceforge.net/projects/xcat/files/yum/xcat-dep/rh6/x86_64/repodata/repomd.xml.key
 	EOF
 
-} #&> /dev/null
+} &> /dev/null
 
 xcat_cleanup(){
   
@@ -75,8 +77,9 @@ xcat_cleanup(){
 
   echo -e "Forcing removal of all xCAT packages from the packages database:\n"
   for pkg in $(repoquery --resolve --repoid=xcat-deps-local --repoid=xcat-core-local --require -i $(repoquery --requires --recursive --resolve xCAT) | grep "Name        :" | awk '{print $3}' | sort -u); do
-   echo -e "\e[33m[ Cleaning ]\e[0m $(seq -s. $(expr 63 - ${#pkg})|tr -d '[:digit:]') $pkg"
-   rpm -e --justdb --nodeps $pkg &> /dev/null
+   #echo -e "\e[33m[ Cleaning ]\e[0m $(seq -s. $(expr 63 - ${#pkg})|tr -d '[:digit:]') $pkg"
+   rpm -e --justdb --nodeps $pkg &> /dev/null &
+   please_wait $! "Removing package $(seq -s. $(expr 45 - ${#pkg})|tr -d '[:digit:]') $pkg"
   done
 
 }
@@ -85,8 +88,9 @@ xcat_install(){
   
   echo -e "\nInstalling necessary packages and creating new configuration files:\n"
   for pkg in $(repoquery --resolve --repoid=xcat-deps-local --repoid=xcat-core-local --require -i $(repoquery --requires --recursive --resolve xCAT) | grep "Name        :" | awk '{print $3}' | sort -u); do
-    echo -e "\e[32m[ Installing ]\e[0m $(seq -s. $(expr 61 - ${#pkg})|tr -d '[:digit:]') $pkg"
-    yum install -y $pkg &>/dev/null
+    #echo -e "\e[32m[ Installing ]\e[0m $(seq -s. $(expr 61 - ${#pkg})|tr -d '[:digit:]') $pkg"
+    yum install -y $pkg &>/dev/null &
+    please_wait $! "Installing package $(seq -s. $(expr 43 - ${#pkg})|tr -d '[:digit:]') $pkg"
   done
 
 }
@@ -195,7 +199,7 @@ xcat_post_install(){
 	EOF
 
 
-  yumdownloader --destdir /install/centos6.5/x86_64/Packages $(cat ./pkg_list) &> /dev/null
+  yumdownloader --destdir /install/centos6.5/x86_64/Packages $(cat ./xcat/tools/pkg_list) &> /dev/null
 
   createrepo /install/centos6.5/x86_64/
   genimage -o centos6.5 -a x86_64 -p compute -i eth0
@@ -224,11 +228,32 @@ network_setup(){
 echo -e \\033ct clear
 tput clear
 
-stty -echo
-tput civis
-
 update_header
 install_requirements
+
+read -p "What shall we name this controller? [$(hostname)]: " _CONTROLLER_NAME
+if [ -z "$_CONTROLLER_NAME" ]; then
+  _CONTROLLER_NAME=$(hostname)
+fi
+
+echo -e "\nWe are going to install the xCAT controller with the following configuration:\n"
+
+echo -e "Controller hostname: $_CONTROLLER_NAME"
+echo -e "Network information:"
+echo -e "1: eth0: <internal net> 10.141.255.254 255.255.0.0"
+echo -e "2: eth1: <external_net>  DHCP"
+echo -e "3: eth2: <external net> 10.148.255.254 255.255.0.0\n"
+while true; do
+  read -p "Do you wish to proceed? [y/n]: " yn
+    case $yn in
+      [Yy]* ) break;;
+      [Nn]* ) exit;;
+      * ) echo "Please answer yes or no.";;
+    esac
+done
+
+stty -echo
+tput civis
 
 xcat_repo_add
 xcat_system_config
