@@ -14,13 +14,13 @@
 
 IP=$(ip addr show dev eth0 scope global | grep inet | awk -F' ' '{print $2}')
 if [ -z "$IP" ]; then
-echo "No IP found on eth0, assume we have been here before. DRY!"
-return
+   echo "No IP found on eth0, assume we have been here before. DRY!"
+   exit 1
 fi
 
 if ! ifconfig docker0 > /dev/null 2>&1; then
-echo "Interface docker0 not found. Please start docker first."
-exit 1
+   echo "Interface docker0 not found. Please start docker first."
+   exit 1
 fi
 
 GW=$(ip addr show dev docker0 scope global | grep inet | awk -F' ' '{print $2}')
