@@ -1,5 +1,4 @@
 --- /opt/xcat/share/xcat/netboot/genesis/x86_64/fs/bin/doxcat	2013-10-28 09:24:03.000000000 +0100
-+++ xcat/patches/doxcat.new	2014-05-22 00:56:09.226445273 +0200
 @@ -6,9 +6,13 @@
  
  modprobe acpi_cpufreq
