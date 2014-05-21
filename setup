@@ -1,13 +1,8 @@
 #!/bin/bash
 
-_PKI_DIR=/etc/salt/pki
-_SALT_ROOTFILES=/srv
-_CURRENT_DIR=$(pwd)
-_EPEL_RELEASE=http://ftp.linux.ncsu.edu/pub/epel/6/i386/epel-release-6-8.noarch.rpm
 _CONTROLLER_NAME=""
 _EXTRA_PKGS="net-snmp-utils wget yum-utils createrepo python-pyasn1 pysnmp"
 _XCAT_INSTALLED=false
-_DONE_TASKS=""
 
 . ./xcat/tools/bash_lib
 
