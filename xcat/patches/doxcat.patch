@@ -1,0 +1,28 @@
+--- /opt/xcat/share/xcat/netboot/genesis/x86_64/fs/bin/doxcat	2013-10-28 09:24:03.000000000 +0100
++++ xcat/patches/doxcat.new	2014-05-22 00:56:09.226445273 +0200
+@@ -6,9 +6,13 @@
+ 
+ modprobe acpi_cpufreq
+ modprobe cpufreq_ondemand
+-for gov in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
+-	echo -n ondemand > $gov
+-done
++
++if ls /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor &>/dev/null; then
++        for gov in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
++                echo -n ondemand > $gov
++        done
++fi
++
+ if [ ! -z "$BOOTIF" ]; then
+ 	BOOTIF=`echo $BOOTIF|sed -e s/01-// -e s/-/:/g`
+ 	echo -n "Waiting for device with address $BOOTIF to appear.."
+@@ -103,7 +107,7 @@
+ echo -n "Acquired IPv4 address on $bootnic: "
+ ip addr show dev $bootnic|grep -v 'scope link'|grep -v 'dynamic'|grep -v  inet6|grep inet|awk '{print $2}'
+ ntpd -g -x
+-(while ! ntpq -c "rv 0 state"|grep 'state=4' > /dev/null; do sleep 1; done; hwclock --systohc) &
++(while [ "`ntpq -c \"rv 0 offset\" | grep \"offset=\" | awk -F \"=\" '{print $2}' | awk -F \".\" '{print $1}' | sed s/-//`" -ge 1000 ]; do sleep 1; done; hwclock --systohc) &
+ if dmidecode|grep IPMI > /dev/null; then
+ 	modprobe ipmi_si
+ 	modprobe ipmi_devintf

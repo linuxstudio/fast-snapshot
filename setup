@@ -1,7 +1,7 @@
 #!/bin/bash
 
 _CONTROLLER_NAME=""
-_EXTRA_PKGS="net-snmp-utils wget yum-utils createrepo python-pyasn1 pysnmp"
+_EXTRA_PKGS="net-snmp-utils wget yum-utils createrepo python-pyasn1 pysnmp patchutils"
 _XCAT_INSTALLED=false
 
 . ./xcat/tools/bash_lib
@@ -111,6 +111,9 @@ xcat_system_config(){
 xcat_post_install(){
 
   echo -e "\nxCAT post install steps:\n"
+
+  patch < xcat/patches/doxcat.patch 2> /dev/null &
+  please_wait "Fixing xCAT"
 
   . /etc/profile.d/xcat.sh
 
