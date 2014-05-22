@@ -29,6 +29,8 @@ please_wait(){
   else
     if [ "$onfailkill" = true ]; then
       printf "\r[${cred}FAIL${crst}] $task $rc \n"
+      stty echo
+      tput cnorm
       exit 1
     else
       printf "\r[${cylw}WRNG${crst}] $task $rc \n"
@@ -41,16 +43,15 @@ move_and_echo() {
 }
 
 warning() {
-stty -echo
-tput civis
 
+  stty -echo
+  tput civis
   echo -ne "\n$1"
   sleep 3
   echo -e "\r\033[0K"
   echo -e "\e[1A\e[1A\e[1A\e[1A"
   echo -ne "\033[0K"
-
-stty echo
-tput cnorm
+  stty echo
+  tput cnorm
 
 }

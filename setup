@@ -20,8 +20,6 @@ update_header(){
   move_and_echo 2 1 "                         \ -.- /"
   move_and_echo 3 1 "                         \`-.^.-'          **xCAT** "   
   move_and_echo 4 1 "                           /\"\ \n"
-#  move_and_echo 5 1 "“Cats are intended to teach us that not everything in nature has a purpose.....”"
-
   move_and_echo 7 1 ""
 
 }
