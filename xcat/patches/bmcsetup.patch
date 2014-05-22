@@ -1,0 +1,14 @@
+--- /opt/xcat/share/xcat/netboot/genesis/x86_64/fs/bin/bmcsetup	2013-11-13 05:04:52.000000000 +0100
+@@ -93,6 +93,12 @@
+ elif [ "$IPMIMFG" == "47488" ]; then
+         LOCKEDUSERS=1
+ fi
++
++#Supermicro IPMI: Bruno Pereira <bruno.pereira@clustervision.com>, 26-05-2014
++if [ "$IPMIMFG" == "10876" ]; then
++        LOCKEDUSERS=1
++fi
++
+ echo -n "Auto detecting LAN channel..."
+ 
+ while [ -z "$LANCHAN" ]; do 

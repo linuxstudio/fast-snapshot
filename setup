@@ -112,7 +112,8 @@ xcat_post_install(){
 
   echo -e "\nxCAT post install steps:\n"
 
-  patch -p0 < ./xcat/patches/doxcat.patch
+  (patch -p0 < ./xcat/patches/bmcsetup.patch
+  patch -p0 < ./xcat/patches/doxcat.patch) 2> /dev/null &
   please_wait $! "Fixing xCAT"
 
   . /etc/profile.d/xcat.sh
