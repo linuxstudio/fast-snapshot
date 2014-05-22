@@ -1,0 +1,256 @@
+#!/bin/bash
+
+_CONTROLLER_NAME=""
+_NODES_QTTY=""
+_NODES_BASENAME=""
+
+_EXTRA_PKGS="net-snmp-utils wget yum-utils createrepo python-pyasn1 pysnmp patchutils"
+_XCAT_INSTALLED=false
+_SETUP_LOG=/tmp/
+
+. ./xcat/tools/bash_lib
+
+update_header(){
+
+  echo -e \\033ct clear
+  tput clear
+
+
+  move_and_echo 1 1 "                         /\___/\\"
+  move_and_echo 2 1 "                         \ -.- /"
+  move_and_echo 3 1 "                         \`-.^.-'          **xCAT** "   
+  move_and_echo 4 1 "                           /\"\ \n"
+#  move_and_echo 5 1 "“Cats are intended to teach us that not everything in nature has a purpose.....”"
+
+  move_and_echo 7 1 ""
+
+}
+
+install_requirements(){
+
+  yum install -y $_EXTRA_PKGS &> /dev/null &
+  please_wait $! "Installing necessary tools for setup to continue"
+
+}
+
+xcat_repo_add(){
+
+  mkdir -p /var/cache/xCAT-repo/xcat-core
+  mkdir -p /var/cache/xCAT-repo/xcat-deps
+  
+  reposync --config=./xcat/repositories/xCAT-Core.repo --repoid=xcat-core --download_path=/var/cache/xCAT-repo/xcat-core
+  reposync --config=./xcat/repositories/xCAT-Deps.repo --repoid=xcat-deps --download_path=/var/cache/xCAT-repo/xcat-deps
+  
+  createrepo /var/cache/xCAT-repo/xcat-core
+  createrepo /var/cache/xCAT-repo/xcat-deps
+
+  rm -rf /etc/yum.repos.d/xCAT-Core.repo
+  rm -rf /etc/yum.repos.d/xCAT-Deps.repo
+
+	cat <<- EOF > /etc/yum.repos.d/xCAT-Core.repo
+	[xcat-core-local]
+	name=xCAT 2 Core packages
+	baseurl=file:///var/cache/xCAT-repo/xcat-core
+	enabled=1
+	gpgcheck=1
+	gpgkey=https://sourceforge.net/projects/xcat/files/yum/2.8/xcat-core/repodata/repomd.xml.key
+	EOF
+
+	cat <<- EOF > /etc/yum.repos.d/xCAT-Deps.repo
+	[xcat-deps-local]
+	name=xCAT 2 depedencies
+	baseurl=file:///var/cache/xCAT-repo/xcat-deps
+	enabled=1
+	gpgcheck=1
+	gpgkey=https://sourceforge.net/projects/xcat/files/yum/xcat-dep/rh6/x86_64/repodata/repomd.xml.key
+	EOF
+
+} &> /dev/null
+
+xcat_cleanup(){
+  
+  echo -e "Removing xCAT\n"
+  rm -rf /install
+  rm -rf /root/.xcat
+  rm -rf /tftpboot
+  rm -rf /etc/apache2/conf.d/xcat.conf
+  rm -rf /etc/httpd/conf.d/xcat.conf
+  rm -rf /etc/xCATMN
+  rm -rf /opt/xcat/
+  rm -rf /etc/xcat
+
+  echo -e "Forcing removal of all xCAT packages from the packages database:\n"
+  for pkg in $(repoquery --resolve --repoid=xcat-deps-local --repoid=xcat-core-local --require -i $(repoquery --requires --recursive --resolve xCAT) | grep "Name        :" | awk '{print $3}' | sort -u); do
+   #echo -e "\e[33m[ Cleaning ]\e[0m $(seq -s. $(expr 63 - ${#pkg})|tr -d '[:digit:]') $pkg"
+   rpm -e --justdb --nodeps $pkg &> /dev/null &
+   please_wait $! "Removing package $(seq -s. $(expr 45 - ${#pkg})|tr -d '[:digit:]') $pkg"
+  done
+
+}
+
+xcat_install(){
+  
+  echo -e "\nInstalling necessary packages and creating new configuration files:\n"
+  for pkg in $(repoquery --resolve --repoid=xcat-deps-local --repoid=xcat-core-local --require -i $(repoquery --requires --recursive --resolve xCAT) | grep "Name        :" | awk '{print $3}' | sort -u); do
+    #echo -e "\e[32m[ Installing ]\e[0m $(seq -s. $(expr 61 - ${#pkg})|tr -d '[:digit:]') $pkg"
+    yum install -y $pkg &>/dev/null &
+    please_wait $! "Installing package $(seq -s. $(expr 43 - ${#pkg})|tr -d '[:digit:]') $pkg" true
+  done
+
+}
+
+xcat_system_config(){
+
+  (/bin/cp -rf ./templates/controller/etc/ntp/ntp.conf /etc/ntp.conf
+  /bin/cp -rf ./templates/controller/etc/sysconfig/network /etc/sysconfig/network
+
+	cat <<- EOF > /etc/hosts
+	127.0.0.1	localhost
+	10.141.255.254	controller controller.cluster
+	EOF
+
+  /bin/cp -rf ./templates/controller/etc/sysconfig/network-scripts/* /etc/sysconfig/network-scripts/
+  /bin/cp -rf ./templates/controller/etc/resolv.conf /etc/resolv.conf
+
+  hostname controller
+  service network restart &> /dev/null) &
+  please_wait $! "Applying blank network and services configuration"
+
+}
+
+xcat_post_install(){
+
+  echo -e "\nxCAT post install steps:\n"
+
+  (patch -p0 < ./xcat/patches/bmcsetup.patch
+  patch -p0 < ./xcat/patches/doxcat.patch) &> /dev/null &
+  please_wait $! "Patching xCAT files"
+
+  . /etc/profile.d/xcat.sh
+
+  /opt/xcat/sbin/restorexCATdb -p ./xcat/tables &> /dev/null &
+  please_wait $! "Restoring default xCAT tables" true
+  service xcatd restart &> /dev/null
+  
+  /opt/xcat/sbin/nodeadd node001-node004 groups=compute &> /dev/null
+  
+  mkdir -p /install/custom/netboot/centos
+  cp ./templates/controller/install/custom/netboot/centos/compute.centos6.5.pkglist /install/custom/netboot/centos
+  cp ./templates/controller/install/custom/netboot/centos/compute.centos6.5.exlist  /install/custom/netboot/centos
+
+  yumdownloader --destdir /install/centos6.5/x86_64/Packages $(cat ./xcat/tools/pkg_list) &> /dev/null &
+  please_wait $! "Downloading necessary distribution packages" true
+
+  createrepo /install/centos6.5/x86_64/ &> /dev/null
+
+  genimage -o centos6.5 -a x86_64 -p compute -i eth0 &> /dev/null &
+  please_wait $! "Generating image for node group compute" true
+
+  packimage -o centos6.5 -a x86_64 -p compute &> /dev/null &
+  please_wait $! "Packing the new node image" true
+
+  (/opt/xcat/sbin/makehosts
+  /opt/xcat/sbin/makedhcp -n
+  /opt/xcat/sbin/makedhcp -a
+  /opt/xcat/sbin/makedns -n
+
+  nodeset compute osimage=centos6.5-x86_64-netboot-compute
+
+  service dhcpd restart &>/dev/null
+  service named restart &> /dev/null) &> /dev/null &
+  please_wait $! "Creating nodes and restarting services" true
+
+}
+
+xcat_pre_install(){
+
+  if [ -n "$(rpm -qa | grep -i xCAT)" ]; then
+    echo -e "\nFound previous xCAT installation... \c"
+    _XCAT_INSTALLED=true
+  fi  
+
+}
+
+
+test_network() {
+
+  for interface in $(ls /sys/class/net/ | grep -v lo); do
+    if [[ $(cat /sys/class/net/$interface/carrier) = 1 ]]; then online=1; fi
+  done
+  if ! [ $online ]; then return 1; fi
+  return 0
+
+}
+
+update_header
+
+while true; do
+  read -p "What shall we name this controller? [$(hostname)]: " _CONTROLLER_NAME
+
+  if [ -z "$_CONTROLLER_NAME" ]; then _CONTROLLER_NAME=$(hostname); fi
+
+  if ! [[ $_CONTROLLER_NAME =~ ^[a-zA-Z]+$ ]]; then
+    warning "Please input a valid hostname for this xCAT controller!"
+  else
+    break; fi
+done
+
+while true; do
+  read -p "How many compute nodes are going to be used in the cluster?: " _NODES_QTTY
+  if ! [[ $_NODES_QTTY =~ ^[0-9]+$ ]]; then
+    warning "Please input a valid node number to be used in the xCAT configuration!"
+  else
+    break; fi
+done
+
+while true; do
+  read -p "What shall the node base name be? [compute]: " _NODES_BASENAME
+
+  if [ -z "$_NODES_BASENAME" ]; then _NODES_BASENAME="compute"; fi
+
+  if ! [[ $_NODES_BASENAME =~ ^[a-zA-Z]+$ ]]; then
+    warning "Please input a valid basename for the nodes in this xCAT controller!"
+  else
+    break; fi
+done
+
+echo -e "\nThis xCAT controller will be installed with the following configuration:\n"
+
+echo -e "Hostname: $_CONTROLLER_NAME"
+echo -e "$_NODES_QTTY nodes using $_NODES_BASENAME as a base name\n"
+echo -e "1: <internal net> .. eth0 ... 10.141.255.254 255.255.0.0"
+echo -e "3: <ipmi net> ...... eth2 ... 10.148.255.254 255.255.0.0"
+echo -e "2: <external net> .. eth1 ... DHCP\n"
+while true; do
+  read -p "Do you wish to proceed? [y/n]: " yn
+    case $yn in
+      [Yy]* ) break;;
+      [Nn]* ) exit;;
+      * ) echo "Please answer yes or no.";;
+    esac
+done
+
+update_header
+
+stty -echo
+tput civis
+
+install_requirements
+xcat_system_config
+
+test_network &
+please_wait $! "Testing network connectivity" true
+
+xcat_pre_install
+
+if [ "$_XCAT_INSTALLED" = true ]; then
+  xcat_cleanup
+fi
+
+xcat_repo_add
+xcat_install
+
+xcat_post_install
+
+stty echo
+tput cnorm

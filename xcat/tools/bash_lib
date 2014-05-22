@@ -1,35 +1,56 @@
 #!/bin/bash
 
-cgreen=$(echo -e "\e[32m")
+cgrn=$(echo -e "\e[32m")
+cylw=$(echo -e "\e[33m")
 cred=$(echo -e "\e[31m")
-cunder=$(echo -e "\e[4m")
-creset=$(echo -e "\e[0m")
+cudr=$(echo -e "\e[4m")
+crst=$(echo -e "\e[0m")
 
 please_wait(){
 
-local pid=$1
-local task=$2
-local onfailkill=$3
-local delay=0.5
+  local pid=$1
+  local task=$2
+  local onfailkill=$3
+  local delay=0.5
 
-while [ "$(ps a | awk '{print $1}' | grep $pid)" ]; do
-  printf "\r[    ] $task"
-  sleep $delay
-  printf "\r[ .  ]"
-  sleep $delay
-  printf "\r[ .. ]"
-  sleep $delay
-  printf "\r[  . ]" 
-  sleep $delay
-done
+  while [ "$(ps a | awk '{print $1}' | grep $pid)" ]; do
+    printf "\r[    ] $task"
+    sleep $delay
+    printf "\r[ .  ]"
+    sleep $delay
+    printf "\r[ .. ]"
+    sleep $delay
+    printf "\r[  . ]" 
+    sleep $delay
+  done
 
-if wait $pid; then
-  printf "\r[ ${cgreen}OK${creset} ] $task $rc \n"
-else
-  printf "\r[${cred}FAIL${creset}] $task $rc \n"
-fi
+  if wait $pid; then
+    printf "\r[ ${cgrn}OK${crst} ] $task $rc \n"
+  else
+    if [ "$onfailkill" = true ]; then
+      printf "\r[${cred}FAIL${crst}] $task $rc \n"
+      exit 1
+    else
+      printf "\r[${cylw}WRNG${crst}] $task $rc \n"
+    fi
+  fi
 }
 
 move_and_echo() {
   echo -ne "\E[${1};${2}H""$3" 
+}
+
+warning() {
+stty -echo
+tput civis
+
+  echo -ne "\n$1"
+  sleep 3
+  echo -e "\r\033[0K"
+  echo -e "\e[1A\e[1A\e[1A\e[1A"
+  echo -ne "\033[0K"
+
+stty echo
+tput cnorm
+
 }
