@@ -56,7 +56,7 @@ xcat_repo_add(){
 	gpgkey=https://sourceforge.net/projects/xcat/files/yum/xcat-dep/rh6/x86_64/repodata/repomd.xml.key
 	EOF
 
-} &> /dev/null
+} 2> /dev/null
 
 xcat_cleanup(){
   
