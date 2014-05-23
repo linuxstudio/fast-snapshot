@@ -20,12 +20,7 @@ if [ -z "$IP" ]; then
    exit 1
 fi
 
-if ! ifconfig docker0 > /dev/null 2>&1; then
-   echo "Interface docker0 not found. Please start docker first."
-   #service docker start
-   #sleep 3
-fi
-
+# create the docker bridge
 brctl addbr docker0
 ip link set docker0 up
 
@@ -45,4 +40,3 @@ brctl addif docker0 eth0
 
 # setup the route to the controller
 route add default gw controller
-
