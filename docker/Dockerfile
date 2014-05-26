@@ -3,8 +3,7 @@ MAINTAINER hans.then@clustervision.com
 RUN rpm -ivh http://dl.fedoraproject.org/pub/epel/6/i386/epel-release-6-8.noarch.rpm
 RUN yum -y install openssh-server python-pip vim-minimal infiniband-diags
 RUN yum -y groupinstall "Infiniband Support"
-RUN echo "root:system" | chpasswd
-RUN pip install supervisor
+RUN echo "root:system" | chpasswd && pip install supervisor
 RUN mkdir -p /var/run/sshd ; chmod -rx /var/run/sshd
 RUN sed -ri 's/^#PermitRootLogin yes/PermitRootLogin yes/g' /etc/ssh/sshd_config 
 RUN sed -ri 's/UsePAM yes/#UsePAM yes/g' /etc/ssh/sshd_config
